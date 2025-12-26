@@ -1,0 +1,75 @@
+/* KONEK Brand Typography - Be Vietnam Pro with Vietnamese support */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent window scroll - fit content to window */
+html, body {
+  overflow: hidden;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: auto;
+}
+
+/* KONEK Brand CSS Variables */
+:root {
+  /* Primary - Navy */
+  --color-navy-50: #E8EDF4;
+  --color-navy-100: #C5D3E8;
+  --color-navy-200: #A2B9DC;
+  --color-navy-300: #5B7BA3;
+  --color-navy-400: #3D5F89;
+  --color-navy-500: #2D4A6F;
+  --color-navy-600: #234058;
+  --color-navy-700: #1B365D;
+  --color-navy-800: #152B4A;
+  --color-navy-900: #0F1F38;
+
+  /* Secondary - Ocean Blue */
+  --color-ocean-50: #EBF4FC;
+  --color-ocean-100: #C9E0F5;
+  --color-ocean-200: #A7CCEE;
+  --color-ocean-300: #85B8E7;
+  --color-ocean-400: #63A4E0;
+  --color-ocean-500: #4A90D9;
+  --color-ocean-600: #3A7AC4;
+  --color-ocean-700: #2E6DB5;
+  --color-ocean-800: #235A96;
+  --color-ocean-900: #1A4777;
+
+  /* Accent - Sky Blue */
+  --color-sky-50: #F0F7FC;
+  --color-sky-100: #D9EBF7;
+  --color-sky-200: #B3D7EF;
+  --color-sky-300: #8DC3E7;
+  --color-sky-400: #7CB9E8;
+  --color-sky-500: #5BA5DE;
+  --color-sky-600: #4891D4;
+  --color-sky-700: #357DCA;
+
+  /* Semantic Colors */
+  --color-primary: var(--color-navy-700);
+  --color-secondary: var(--color-ocean-500);
+  --color-accent: var(--color-sky-400);
+
+  /* Typography */
+  --font-primary: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+}
+
+/* Dark Mode Semantic Adjustments */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: var(--color-ocean-400);
+  }
+}
+
+body {
+  font-family: var(--font-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

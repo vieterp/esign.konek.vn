@@ -1,0 +1,65 @@
+[package]
+name = "esign-desktop"
+version = "0.1.0"
+description = "Cross-platform PDF signing app with Vietnamese USB token support"
+authors = ["eSign Team"]
+edition = "2021"
+
+[lib]
+name = "esign_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri framework
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+# PKCS#11 for USB token communication
+cryptoki = "0.7"
+
+# PDF manipulation
+lopdf = "0.34"
+
+# Cryptography
+sha2 = "0.10"
+x509-parser = "0.16"
+hex = "0.4"
+base64 = "0.22"
+
+# CMS/PKCS#7 for PDF signatures (RustCrypto)
+cms = "0.2"
+const-oid = "0.9"
+der = { version = "0.7", features = ["std", "alloc"] }
+x509-cert = "0.2"
+spki = "0.7"
+
+# TSA (RFC 3161)
+tsp = "0.2"
+
+# HTTP client for TSA
+reqwest = { version = "0.12", features = ["blocking", "rustls-tls"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+thiserror = "1"
+
+# Security - PIN memory zeroization
+zeroize = { version = "1.7", features = ["derive"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

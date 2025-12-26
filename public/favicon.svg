@@ -1,0 +1,60 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- eSign KONEK Icon - Growth Path K for Digital Signing -->
+  <!-- Background with rounded corners for app icon -->
+  <rect width="512" height="512" rx="96" fill="#1B365D"/>
+
+  <!-- Growth Path K - Ascending Blocks Pattern -->
+  <!-- Scaled and centered for icon usage -->
+
+  <!-- Top block (Sky Blue - Achievement) -->
+  <path
+    d="M290 100
+       H420
+       L360 165
+       H275
+       V115
+       Q275 100 290 100
+       Z"
+    fill="#7CB9E8"/>
+
+  <!-- Middle block (Ocean Blue - Progress) -->
+  <path
+    d="M180 185
+       H350
+       L270 270
+       L258 258
+       H165
+       V200
+       Q165 185 180 185
+       Z"
+    fill="#4A90D9"/>
+
+  <!-- Diagonal leg (Navy Light - Connection) -->
+  <path
+    d="M320 225
+       L420 345
+       H330
+       L270 270
+       Z"
+    fill="#A2B9DC"/>
+
+  <!-- Bottom block (White - Foundation/Document) -->
+  <path
+    d="M95 290
+       H255
+       V375
+       Q255 390 240 390
+       H80
+       V305
+       Q80 290 95 290
+       Z"
+    fill="#FFFFFF"/>
+
+  <!-- Signature flourish on document (accent) -->
+  <path
+    d="M110 350 Q130 330 160 345 Q190 360 210 340"
+    stroke="#4A90D9"
+    stroke-width="8"
+    stroke-linecap="round"
+    fill="none"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Konek eSign App Icon - Navy background with Growth Path K -->
+  <rect width="512" height="512" rx="96" fill="#1B365D"/>
+
+  <!-- KONEK Logo centered and scaled (original 440x325, scaled to fit ~360px width) -->
+  <g transform="translate(76, 110) scale(0.82)">
+    <!-- Top block (sky blue) -->
+    <path d="M245 20 H420 L345 105 H230 V35 Q230 20 245 20 Z" fill="#7CB9E8"/>
+
+    <!-- Middle block (ocean blue) -->
+    <path d="M135 120 H335 L235 220 L220 205 H120 V135 Q120 120 135 120 Z" fill="#4A90D9"/>
+
+    <!-- Diagonal leg (white for contrast) -->
+    <path d="M295 160 L420 305 H310 L235 220 Z" fill="#FFFFFF"/>
+
+    <!-- Bottom block (white for contrast) -->
+    <path d="M50 220 H215 V290 Q215 305 200 305 H20 V235 Q20 220 35 220 Z" fill="#FFFFFF"/>
+  </g>
+</svg>
