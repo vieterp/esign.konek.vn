@@ -112,6 +112,13 @@ export function useToken(): UseTokenState & UseTokenActions {
         // Already initialized, list tokens
         const tokenList = await listTokens();
         setTokens(tokenList);
+
+        // Auto-select first slot with token
+        const slotWithToken = tokenList.find(t => t.has_token);
+        if (slotWithToken) {
+          setSelectedSlot(slotWithToken.slot_id);
+        }
+
         setConnectionState("ready");
         setIsLoading(false);
         return;
