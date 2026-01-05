@@ -131,7 +131,18 @@ export function useToken(): UseTokenState & UseTokenActions {
           await initTokenManager(settings.libraryPath);
           const tokenList = await listTokens();
           setTokens(tokenList);
-          setSelectedSlot(settings.lastUsedSlot ?? null);
+
+          // Use saved slot if valid, otherwise auto-select first available
+          const savedSlotExists = tokenList.some(t => t.slot_id === settings.lastUsedSlot);
+          if (savedSlotExists) {
+            setSelectedSlot(settings.lastUsedSlot!);
+          } else {
+            const slotWithToken = tokenList.find(t => t.has_token);
+            if (slotWithToken) {
+              setSelectedSlot(slotWithToken.slot_id);
+            }
+          }
+
           setConnectionState("ready");
           setIsLoading(false);
           return;
