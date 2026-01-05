@@ -48,6 +48,29 @@ fn detect_libraries() -> Vec<DetectedLibrary> {
 /// Must be called before other token operations
 #[tauri::command]
 fn init_token_manager(state: State<AppState>, library_path: String) -> Result<(), String> {
+    // Drop old manager first to ensure C_Finalize is called
+    {
+        let mut guard = state
+            .token_manager
+            .lock()
+            .map_err(|_| "Token manager mutex poisoned")?;
+
+        if let Some(old_manager) = guard.take() {
+            // Check if re-initializing with same library (skip if identical)
+            if old_manager.library_path() == library_path {
+                *guard = Some(old_manager);
+                return Ok(());
+            }
+            // Explicit drop triggers C_Finalize via Drop impl
+            drop(old_manager);
+        }
+    } // guard released here
+
+    // Delay to ensure PKCS#11 library fully finalized
+    // cryptoki v0.7.0's finalize() consumes self, so we rely on Drop cleanup + delay
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    // Create new manager
     let manager = TokenManager::new(&library_path).map_err(|e| e.to_string())?;
 
     let mut guard = state
