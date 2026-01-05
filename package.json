@@ -1,6 +1,6 @@
 {
   "name": "esign-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-platform PDF signing app with Vietnamese USB token support",
   "type": "module",
   "scripts": {
