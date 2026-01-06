@@ -843,7 +843,7 @@ mod tests {
     #[test]
     fn test_all_paths() {
         let paths = library_paths::all_paths();
-        assert_eq!(paths.len(), 3); // VNPT, Viettel, FPT
+        assert_eq!(paths.len(), 4); // VNPT, Viettel, FPT, OpenSC
         for (name, path) in paths {
             assert!(!name.is_empty());
             assert!(!path.is_empty());

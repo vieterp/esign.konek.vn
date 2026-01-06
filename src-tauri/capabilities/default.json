@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.tauri.app/config/2/capability",
   "identifier": "default",
-  "description": "Default capabilities for eSign Desktop",
+  "description": "Default capabilities for eSign Desktop - Scoped to Documents and Downloads",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,10 +10,26 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "dialog:allow-ask",
-    "fs:allow-read",
-    "fs:allow-write",
-    "fs:allow-exists",
-    "fs:allow-mkdir",
-    "fs:default"
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    }
   ]
 }

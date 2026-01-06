@@ -1,7 +1,7 @@
 # Code Standards and Implementation Guidelines
 
-**Last Updated:** 2025-12-26
-**Version:** 1.0
+**Last Updated:** 2026-01-06
+**Version:** 1.1
 
 ## Table of Contents
 
@@ -665,13 +665,50 @@ let session = ctx.open_session(slot)?;
 
 ## Security Best Practices
 
+### Phase 1 Security Model (Implemented)
+
+**Content Security Policy (CSP) - Hardened**
+
+The application enforces a strict CSP that prevents XSS and other injection attacks:
+
+```json
+"csp": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+```
+
+Key restrictions:
+- No `unsafe-inline` - Inline scripts/styles are not allowed
+- `script-src 'self'` - Only bundled JavaScript can execute
+- `connect-src 'self'` - No arbitrary network calls (TSA URLs added in Phase 3)
+- External resources limited to Google Fonts (safe, non-executable)
+
+**Filesystem Permissions - Scoped**
+
+The application is restricted to Documents and Downloads directories:
+
+```json
+"fs:allow-read-file": [
+  { "path": "$DOCUMENT/**" },
+  { "path": "$DOWNLOAD/**" }
+],
+"fs:allow-write-file": [
+  { "path": "$DOCUMENT/**" },
+  { "path": "$DOWNLOAD/**" }
+]
+```
+
+Benefits:
+- Prevents access to system directories
+- Blocks reading other user's files
+- Restricts signed PDFs to user-accessible folders
+- Conforms to OS security expectations
+
 ### Frontend Security
 
 ```typescript
 // ✓ Always sanitize user input
 function validatePdfPath(path: string): boolean {
-  // Block directory traversal
-  if (path.includes('..') || path.startsWith('/etc')) {
+  // Block directory traversal - filesystem scope already enforced by Tauri
+  if (path.includes('..')) {
     return false;
   }
   return path.endsWith('.pdf');
@@ -679,6 +716,11 @@ function validatePdfPath(path: string): boolean {
 
 // ✓ Use secure IPC (Tauri handles this)
 // Tauri validates all invoke calls against capabilities/default.json
+// No sensitive data allowed in localStorage/sessionStorage
+
+// ✓ Inline styles must use CSS classes (CSP safe)
+<div className="bg-primary-600 text-white">OK</div>  // ✓ Correct
+<div style={{ background: 'red' }}>NOT OK</div>    // ✗ Violates CSP
 
 // ✗ Never store sensitive data
 // const pin = localStorage.getItem('token_pin'); // INSECURE!
@@ -744,6 +786,39 @@ pub fn load_pkcs11(library_path: &str) -> Result<Pkcs11, ESignError> {
         .map_err(|e| ESignError::Pkcs11(e.to_string()))
 }
 ```
+
+### CSP Compliance Guide
+
+When adding new features, ensure CSP compliance:
+
+```typescript
+// ✗ VIOLATES CSP
+<button onClick={() => eval('code')}>Click</button>  // Dynamic code
+<div style={{ color: 'red' }}>Text</div>             // Inline styles
+<img src="data:image/svg+xml" onload="alert('xss')"> // XSS vector
+<script>alert('nope')</script>                       // Inline scripts
+
+// ✓ CSP COMPLIANT
+<button onClick={handleClick}>Click</button>         // Event handlers OK
+<div className="text-red-500">Text</div>             // Use Tailwind classes
+<img src="/images/icon.png" alt="icon" />            // Static images
+import { dynamicModule } from '@/utils';             // Import modules
+```
+
+### Connect-src Restrictions (Phase 3)
+
+Current CSP allows `connect-src 'self'` only. For Phase 3 TSA integration:
+
+```json
+"connect-src": "'self' https://tsa.vnca.com.vn https://tsa.vpost.vn https://tsa.fptca.com.vn"
+```
+
+The approved TSA endpoints are:
+- `https://tsa.vnca.com.vn` - VNPT-CA TSA
+- `https://tsa.vpost.vn` - VietPostCA TSA
+- `https://tsa.fptca.com.vn` - FPT-CA TSA
+
+Do not add arbitrary endpoints without security review.
 
 ---
 
