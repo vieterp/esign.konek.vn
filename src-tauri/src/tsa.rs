@@ -26,6 +26,7 @@ pub mod servers {
     pub const FPT_HTTP: &str = "http://tsa.fpt.vn";
 
     /// Check if URL is using insecure HTTP
+    #[allow(dead_code)] // Will be used in Phase 3 for TSA security warnings
     pub fn is_insecure(url: &str) -> bool {
         url.starts_with("http://")
     }

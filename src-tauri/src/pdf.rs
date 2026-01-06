@@ -212,6 +212,7 @@ impl PdfSigningEngine {
     }
 
     /// Create PDF signing engine with TSA support
+    #[allow(dead_code)] // Will be used in Phase 3 TSA embedding
     pub fn with_tsa() -> Result<Self, ESignError> {
         Ok(Self {
             tsa_client: Some(TsaClient::new()?),
