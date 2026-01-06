@@ -27,6 +27,8 @@ pub struct TokenManager {
     session: Mutex<Option<Session>>,
     signing_key: Mutex<Option<ObjectHandle>>,
     certificate_der: Mutex<Option<Vec<u8>>>,
+    /// Full certificate chain (end-entity + issuers)
+    certificate_chain: Mutex<Vec<Vec<u8>>>,
     library_path: String,
 }
 
@@ -61,6 +63,7 @@ impl TokenManager {
             session: Mutex::new(None),
             signing_key: Mutex::new(None),
             certificate_der: Mutex::new(None),
+            certificate_chain: Mutex::new(Vec::new()),
             library_path: library_path.to_string(),
         })
     }
@@ -186,10 +189,20 @@ impl TokenManager {
         // Find signing private key
         let key_handle = self.find_signing_key(&session)?;
 
-        // Find and store certificate
-        let cert_der = self.find_certificate(&session)?;
+        // Find certificate chain (end-entity + issuers)
+        let (cert_der, cert_chain) = self.find_certificate_chain(&session)?;
 
-        // Store session, key handle, and certificate
+        // Log chain info
+        if cert_chain.len() > 1 {
+            eprintln!(
+                "Found certificate chain with {} certificates",
+                cert_chain.len()
+            );
+        } else {
+            eprintln!("Found single certificate (no issuer chain on token)");
+        }
+
+        // Store session, key handle, certificate, and chain
         {
             let mut session_guard = self
                 .session
@@ -210,6 +223,13 @@ impl TokenManager {
                 .lock()
                 .map_err(|_| ESignError::Pkcs11("Certificate mutex poisoned".to_string()))?;
             *cert_guard = Some(cert_der);
+        }
+        {
+            let mut chain_guard = self
+                .certificate_chain
+                .lock()
+                .map_err(|_| ESignError::Pkcs11("Certificate chain mutex poisoned".to_string()))?;
+            *chain_guard = cert_chain;
         }
 
         Ok(())
@@ -238,43 +258,115 @@ impl TokenManager {
             })
     }
 
-    /// Find certificate on token
-    fn find_certificate(&self, session: &Session) -> Result<Vec<u8>, ESignError> {
+    /// Find all certificates on token and build certificate chain
+    /// Returns (end_entity_cert, full_chain) where chain is ordered [end_entity, issuer1, issuer2, ...]
+    fn find_certificate_chain(
+        &self,
+        session: &Session,
+    ) -> Result<(Vec<u8>, Vec<Vec<u8>>), ESignError> {
         let template = vec![Attribute::Class(ObjectClass::CERTIFICATE)];
 
         let objects = session
             .find_objects(&template)
             .map_err(|e| ESignError::Signing {
                 code: SigningErrorCode::CertificateNotFound,
-                message: format!("Failed to search for certificate: {}", e),
+                message: format!("Failed to search for certificates: {}", e),
             })?;
 
-        let cert_handle = objects
-            .into_iter()
-            .next()
-            .ok_or_else(|| ESignError::Signing {
+        if objects.is_empty() {
+            return Err(ESignError::Signing {
                 code: SigningErrorCode::CertificateNotFound,
-                message: "No certificate found on token".to_string(),
-            })?;
+                message: "No certificates found on token".to_string(),
+            });
+        }
 
-        // Get certificate value (DER-encoded)
-        let attrs = session
-            .get_attributes(cert_handle, &[AttributeType::Value])
-            .map_err(|e| ESignError::Signing {
-                code: SigningErrorCode::CertificateNotFound,
-                message: format!("Failed to read certificate: {}", e),
-            })?;
+        // Extract all certificate DER values
+        let mut all_certs: Vec<Vec<u8>> = Vec::new();
+        for cert_handle in objects {
+            let attrs = session
+                .get_attributes(cert_handle, &[AttributeType::Value])
+                .map_err(|e| ESignError::Signing {
+                    code: SigningErrorCode::CertificateNotFound,
+                    message: format!("Failed to read certificate: {}", e),
+                })?;
 
-        for attr in attrs {
-            if let Attribute::Value(der) = attr {
-                return Ok(der);
+            for attr in attrs {
+                if let Attribute::Value(der) = attr {
+                    all_certs.push(der);
+                    break;
+                }
             }
         }
 
-        Err(ESignError::Signing {
-            code: SigningErrorCode::CertificateNotFound,
-            message: "Certificate value not found".to_string(),
-        })
+        if all_certs.is_empty() {
+            return Err(ESignError::Signing {
+                code: SigningErrorCode::CertificateNotFound,
+                message: "No certificate values found".to_string(),
+            });
+        }
+
+        // Find end-entity certificate (the one with a matching private key)
+        // For simplicity, use the first certificate as end-entity
+        let end_entity = all_certs[0].clone();
+
+        // Build chain by matching subject/issuer
+        let chain = self.build_certificate_chain(&end_entity, &all_certs);
+
+        Ok((end_entity, chain))
+    }
+
+    /// Build certificate chain from subject/issuer matching
+    /// Returns ordered chain: [end_entity, issuer1, issuer2, ...]
+    fn build_certificate_chain(&self, end_entity: &[u8], all_certs: &[Vec<u8>]) -> Vec<Vec<u8>> {
+        use x509_parser::prelude::*;
+
+        let mut chain = vec![end_entity.to_vec()];
+        let mut current_cert = end_entity;
+
+        // Maximum chain length to prevent infinite loops
+        const MAX_CHAIN_LENGTH: usize = 10;
+
+        for _ in 0..MAX_CHAIN_LENGTH {
+            // Parse current certificate to get issuer
+            let Ok((_, cert)) = X509Certificate::from_der(current_cert) else {
+                break;
+            };
+
+            let issuer = cert.issuer();
+            let subject = cert.subject();
+
+            // If self-signed (issuer == subject), we've reached the root
+            if issuer == subject {
+                break;
+            }
+
+            // Find issuer certificate
+            let mut found_issuer = false;
+            for candidate in all_certs {
+                if candidate == current_cert {
+                    continue;
+                }
+
+                let Ok((_, cand_cert)) = X509Certificate::from_der(candidate) else {
+                    continue;
+                };
+
+                // Check if candidate's subject matches current cert's issuer
+                if cand_cert.subject() == issuer {
+                    chain.push(candidate.clone());
+                    current_cert = chain.last().unwrap();
+                    found_issuer = true;
+                    break;
+                }
+            }
+
+            if !found_issuer {
+                // No issuer found on token - chain is incomplete but still usable
+                break;
+            }
+        }
+
+        chain
     }
 
     /// Get certificate information from logged-in token
@@ -335,6 +427,24 @@ impl TokenManager {
             code: SigningErrorCode::CertificateNotFound,
             message: "Not logged in or no certificate available".to_string(),
         })
+    }
+
+    /// Get full certificate chain (end-entity + issuers)
+    /// Returns Vec of DER-encoded certificates ordered [end_entity, issuer1, issuer2, ...]
+    /// May return single certificate if no issuer chain found on token
+    #[allow(dead_code)] // Ready for PAdES-LT/LTA integration
+    pub fn get_certificate_chain(&self) -> Result<Vec<Vec<u8>>, ESignError> {
+        let guard = self
+            .certificate_chain
+            .lock()
+            .map_err(|_| ESignError::Pkcs11("Certificate chain mutex poisoned".to_string()))?;
+        if guard.is_empty() {
+            return Err(ESignError::Signing {
+                code: SigningErrorCode::CertificateNotFound,
+                message: "Not logged in or no certificate chain available".to_string(),
+            });
+        }
+        Ok(guard.clone())
     }
 
     /// Sign data using RSA-PKCS#1 v1.5 with SHA-256
@@ -412,6 +522,9 @@ impl TokenManager {
         }
         if let Ok(mut cert_guard) = self.certificate_der.lock() {
             *cert_guard = None;
+        }
+        if let Ok(mut chain_guard) = self.certificate_chain.lock() {
+            chain_guard.clear();
         }
         if let Ok(mut session_guard) = self.session.lock() {
             if let Some(session) = session_guard.take() {

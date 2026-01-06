@@ -4,6 +4,7 @@
 //! Supports Vietnamese TSA servers with fallback logic.
 
 use crate::error::ESignError;
+use rand::Rng;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -26,10 +27,20 @@ pub mod servers {
     pub const FPT_HTTP: &str = "http://tsa.fpt.vn";
 
     /// Check if URL is using insecure HTTP
-    #[allow(dead_code)] // Will be used in Phase 3 for TSA security warnings
     pub fn is_insecure(url: &str) -> bool {
         url.starts_with("http://")
     }
+}
+
+/// Result of a timestamp request
+#[derive(Debug, Clone)]
+pub struct TimestampResult {
+    /// DER-encoded TimeStampToken
+    pub token: Vec<u8>,
+    /// URL used to obtain the timestamp
+    pub server_url: String,
+    /// True if HTTP (insecure) was used instead of HTTPS
+    pub used_insecure_transport: bool,
 }
 
 /// TSA server configuration
@@ -88,8 +99,8 @@ impl TsaClient {
 
     /// Get timestamp token for signature data
     /// Tries HTTPS servers first, falls back to HTTP with warning
-    /// Returns DER-encoded TimeStampToken
-    pub fn get_timestamp(&self, signature: &[u8]) -> Result<Vec<u8>, ESignError> {
+    /// Returns TimestampResult containing DER-encoded TimeStampToken and security info
+    pub fn get_timestamp(&self, signature: &[u8]) -> Result<TimestampResult, ESignError> {
         // Hash the signature for the timestamp request
         let mut hasher = Sha256::new();
         hasher.update(signature);
@@ -106,7 +117,23 @@ impl TsaClient {
         for url in &urls {
             match self.send_timestamp_request(url, &ts_request) {
                 Ok(response) => {
-                    return self.parse_timestamp_response(&response);
+                    let token = self.parse_timestamp_response(&response)?;
+                    let used_insecure = servers::is_insecure(url);
+
+                    // Log warning if using insecure HTTP
+                    if used_insecure {
+                        eprintln!(
+                            "WARNING: Timestamp obtained via insecure HTTP from {}. \
+                             HTTPS servers were unavailable.",
+                            url
+                        );
+                    }
+
+                    return Ok(TimestampResult {
+                        token,
+                        server_url: url.clone(),
+                        used_insecure_transport: used_insecure,
+                    });
                 }
                 Err(e) => {
                     last_error = Some(e);
@@ -156,11 +183,8 @@ impl TsaClient {
         let version: &[u8] = &[0x02, 0x01, 0x01]; // INTEGER 1
         let cert_req: &[u8] = &[0x01, 0x01, 0xFF]; // BOOLEAN TRUE
 
-        // Generate random nonce
-        let nonce_value: u64 = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
+        // Generate cryptographically secure random nonce
+        let nonce_value: u64 = rand::thread_rng().gen();
         let nonce_bytes = nonce_value.to_be_bytes();
         let mut nonce = vec![0x02]; // INTEGER
                                     // Remove leading zeros

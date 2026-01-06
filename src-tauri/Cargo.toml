@@ -58,6 +58,9 @@ thiserror = "1"
 # Security - PIN memory zeroization
 zeroize = { version = "1.7", features = ["derive"] }
 
+# Secure random number generation
+rand = "0.8"
+
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
 
