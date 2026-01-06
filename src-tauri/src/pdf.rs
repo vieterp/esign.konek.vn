@@ -262,9 +262,41 @@ impl PdfSigningEngine {
         sign_fn: impl Fn(&[u8]) -> Result<Vec<u8>, ESignError>,
         cert_der: &[u8],
     ) -> Result<Vec<u8>, ESignError> {
-        // Load PDF document
-        let mut doc = Document::load_mem(pdf_bytes)
-            .map_err(|e| ESignError::Pdf(format!("Failed to parse PDF: {}", e)))?;
+        // Load PDF document with detailed error mapping
+        let mut doc = Document::load_mem(pdf_bytes).map_err(|e| {
+
+            // Map lopdf errors to user-friendly Vietnamese messages
+            match &e {
+                lopdf::Error::Decryption(_) => ESignError::Pdf(
+                    "File PDF được mã hóa. Vui lòng gỡ bảo vệ trước khi ký.".to_string()
+                ),
+                lopdf::Error::NotEncrypted | lopdf::Error::AlreadyEncrypted => ESignError::Pdf(
+                    "Lỗi xử lý mã hóa file PDF. Vui lòng kiểm tra lại file.".to_string()
+                ),
+                lopdf::Error::UnsupportedSecurityHandler(_) => ESignError::Pdf(
+                    "File PDF sử dụng phương thức mã hóa không được hỗ trợ.".to_string()
+                ),
+                lopdf::Error::ToUnicodeCMap(_) => ESignError::Pdf(
+                    "File PDF có font chữ không được hỗ trợ. Vui lòng chuyển đổi sang định dạng chuẩn.".to_string()
+                ),
+                lopdf::Error::Parse(_) => ESignError::Pdf(
+                    "File PDF không hợp lệ hoặc bị hư hỏng. Vui lòng kiểm tra lại file.".to_string()
+                ),
+                lopdf::Error::Xref(_) => ESignError::Pdf(
+                    "Cấu trúc file PDF không hợp lệ. File có thể bị hư hỏng.".to_string()
+                ),
+                lopdf::Error::InvalidObjectStream(_) => ESignError::Pdf(
+                    "File PDF sử dụng định dạng nén không được hỗ trợ. Vui lòng xuất lại file PDF.".to_string()
+                ),
+                lopdf::Error::InvalidStream(_) => ESignError::Pdf(
+                    "Dữ liệu trong file PDF không hợp lệ. File có thể bị hư hỏng.".to_string()
+                ),
+                lopdf::Error::Decompress(_) => ESignError::Pdf(
+                    "Không thể giải nén dữ liệu PDF. File có thể bị hư hỏng.".to_string()
+                ),
+                _ => ESignError::Pdf(format!("Lỗi xử lý file PDF: {}", e)),
+            }
+        })?;
 
         // Prepare signature field and get modified PDF
         let (prepared_pdf, byte_range) = self.prepare_pdf_for_signing(&mut doc, signer_params)?;
@@ -279,10 +311,7 @@ impl PdfSigningEngine {
         let final_cms = if let Some(ref tsa_client) = self.tsa_client {
             match tsa_client.get_timestamp(&cms_data) {
                 Ok(timestamp_token) => self.add_timestamp_to_cms(&cms_data, &timestamp_token)?,
-                Err(e) => {
-                    eprintln!("Warning: Failed to get timestamp: {}", e);
-                    cms_data
-                }
+                Err(_e) => cms_data,
             }
         } else {
             cms_data
@@ -567,17 +596,23 @@ impl PdfSigningEngine {
 
     /// Calculate byte range from PDF bytes
     /// Returns [offset1, len1, offset2, len2]
-    /// Maximum distance from end of file for signature container (50KB)
-    /// Prevents manipulation by injecting fake /Contents markers earlier in file
-    const SIGNATURE_MAX_DISTANCE_FROM_EOF: usize = 50000;
+    /// Maximum distance from end of file for signature container
+    /// Note: lopdf 0.37 may place signature earlier in file structure
+    /// Increased to accommodate different PDF serialization order
+    const SIGNATURE_MAX_DISTANCE_FROM_EOF: usize = 1000000; // 1MB
 
     fn calculate_byte_range(&self, pdf_bytes: &[u8]) -> Result<[usize; 4], ESignError> {
         // Find LAST /Contents < position (signature is last object added)
         // Using rposition to prevent ByteRange manipulation attacks
-        let contents_marker = b"/Contents <";
+        // Try both formats: "/Contents <" (old lopdf) and "/Contents<" (lopdf 0.37+)
         let contents_start = pdf_bytes
-            .windows(contents_marker.len())
-            .rposition(|window| window == contents_marker)
+            .windows(11)
+            .rposition(|window| window == b"/Contents <")
+            .or_else(|| {
+                pdf_bytes
+                    .windows(10)
+                    .rposition(|window| window == b"/Contents<")
+            })
             .ok_or_else(|| ESignError::Pdf("Cannot find /Contents in PDF".to_string()))?;
 
         // Validate signature container is near end of file (security check)
@@ -593,7 +628,12 @@ impl PdfSigningEngine {
             )));
         }
 
-        let hex_start = contents_start + contents_marker.len() - 1; // Position of '<'
+        // Find position of '<' after /Contents
+        let hex_start = pdf_bytes[contents_start..]
+            .iter()
+            .position(|&b| b == b'<')
+            .map(|p| contents_start + p)
+            .ok_or_else(|| ESignError::Pdf("Cannot find '<' after /Contents".to_string()))?;
 
         // Find the closing '>'
         let hex_end = pdf_bytes[hex_start..]
@@ -849,20 +889,33 @@ impl PdfSigningEngine {
 
         // Hex-encode CMS and pad to container size
         let hex_signature = hex::encode_upper(cms_data);
-        let padded_signature = format!(
-            "{:0<width$}",
-            hex_signature,
-            width = SIGNATURE_CONTAINER_SIZE * 2
-        );
+
+        // Check if signature fits in container
+        if hex_signature.len() > SIGNATURE_CONTAINER_SIZE * 2 {
+            return Err(ESignError::Pdf(format!(
+                "Signature too large ({} bytes) for container ({} bytes)",
+                hex_signature.len(),
+                SIGNATURE_CONTAINER_SIZE * 2
+            )));
+        }
+
+        // Manually pad with zeros (format! macro can't handle width > ~100k)
+        let target_size = SIGNATURE_CONTAINER_SIZE * 2;
+        let mut padded_signature = hex_signature;
+        if padded_signature.len() < target_size {
+            padded_signature.push_str(&"0".repeat(target_size - padded_signature.len()));
+        }
 
         // Write signature to Contents
         let contents_start = byte_range[1] + 1; // After '<'
         let contents_end = byte_range[2] - 1; // Before '>'
 
         if contents_end - contents_start != SIGNATURE_CONTAINER_SIZE * 2 {
-            return Err(ESignError::Pdf(
-                "Signature container size mismatch".to_string(),
-            ));
+            return Err(ESignError::Pdf(format!(
+                "Signature container size mismatch: expected {} bytes, got {} bytes",
+                SIGNATURE_CONTAINER_SIZE * 2,
+                contents_end - contents_start
+            )));
         }
 
         pdf_bytes[contents_start..contents_end].copy_from_slice(padded_signature.as_bytes());

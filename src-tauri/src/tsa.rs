@@ -105,18 +105,9 @@ impl TsaClient {
         for url in &urls {
             match self.send_timestamp_request(url, &ts_request) {
                 Ok(response) => {
-                    // Warn if using insecure HTTP connection
-                    if servers::is_insecure(url) {
-                        eprintln!(
-                            "⚠️  WARNING: Using insecure HTTP connection for TSA: {}. \
-                             Timestamp may be vulnerable to MITM attacks.",
-                            url
-                        );
-                    }
                     return self.parse_timestamp_response(&response);
                 }
                 Err(e) => {
-                    eprintln!("TSA {} failed: {}", url, e);
                     last_error = Some(e);
                 }
             }

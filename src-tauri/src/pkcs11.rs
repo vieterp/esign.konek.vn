@@ -102,6 +102,63 @@ pub struct CertificateInfo {
     pub der_base64: String,
 }
 
+/// Format X.509 Distinguished Name with proper UTF-8 support
+/// Handles Vietnamese characters that x509_parser's default to_string() corrupts
+fn format_dn_utf8(name: &x509_parser::x509::X509Name) -> String {
+    use x509_parser::der_parser::asn1_rs::Any;
+
+    let mut parts = Vec::new();
+
+    for rdn in name.iter() {
+        for attr in rdn.iter() {
+            // Get attribute type (CN, L, O, etc.)
+            let oid_string = attr.attr_type().to_id_string();
+            let attr_type = match oid_string.as_str() {
+                "2.5.4.3" => "CN",
+                "2.5.4.6" => "C",
+                "2.5.4.7" => "L",
+                "2.5.4.8" => "ST",
+                "2.5.4.10" => "O",
+                "2.5.4.11" => "OU",
+                _ => &oid_string,
+            };
+
+            // Try to decode value as UTF-8 string
+            let value = if let Ok((_rest, any)) = Any::from_der(attr.attr_value().as_bytes()) {
+                // Try UTF8String (tag 12)
+                if any.tag().0 == 12 {
+                    String::from_utf8_lossy(any.data).to_string()
+                }
+                // Try PrintableString (tag 19)
+                else if any.tag().0 == 19 {
+                    String::from_utf8_lossy(any.data).to_string()
+                }
+                // Try BMPString (tag 30) - UTF-16BE encoding
+                else if any.tag().0 == 30 {
+                    // BMPString is UTF-16BE
+                    let utf16_chars: Vec<u16> = any.data
+                        .chunks_exact(2)
+                        .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                        .collect();
+                    String::from_utf16(&utf16_chars).unwrap_or_else(|_| {
+                        String::from_utf8_lossy(any.data).to_string()
+                    })
+                }
+                // Fallback to default
+                else {
+                    attr.as_str().unwrap_or("?").to_string()
+                }
+            } else {
+                attr.as_str().unwrap_or("?").to_string()
+            };
+
+            parts.push(format!("{}={}", attr_type, value));
+        }
+    }
+
+    parts.join(", ")
+}
+
 /// Token manager - handles PKCS#11 operations
 /// Thread-safe wrapper around cryptoki session
 pub struct TokenManager {
@@ -281,7 +338,6 @@ impl TokenManager {
             .map_err(|e| ESignError::Pkcs11(format!("Failed to enumerate slots: {}", e)))?;
 
         if slots.is_empty() {
-            eprintln!("Warning: No slots with tokens found");
             return Ok(Vec::new());
         }
 
@@ -293,7 +349,6 @@ impl TokenManager {
                 Ok(info) => tokens.push(info),
                 Err(e) => {
                     let error_msg = format!("Slot {}: {}", slot.id(), e);
-                    eprintln!("Warning: Failed to get token info - {}", error_msg);
                     errors.push(error_msg);
                 }
             }
@@ -492,8 +547,8 @@ impl TokenManager {
 
         // Extract certificate fields
         let serial = cert.serial.to_string();
-        let subject = cert.subject().to_string();
-        let issuer = cert.issuer().to_string();
+        let subject = format_dn_utf8(cert.subject());
+        let issuer = format_dn_utf8(cert.issuer());
 
         // Format dates as Vietnamese standard: dd/MM/yyyy HH:mm:ss
         let valid_from = format_datetime(cert.validity().not_before.timestamp());
