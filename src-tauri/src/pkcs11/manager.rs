@@ -305,14 +305,52 @@ impl TokenManager {
             });
         }
 
-        // Find end-entity certificate (the one with a matching private key)
-        // For simplicity, use the first certificate as end-entity
-        let end_entity = all_certs[0].clone();
+        // Select the best end-entity certificate:
+        // 1. Prefer currently valid certificate (not expired)
+        // 2. If all expired, pick the one with latest not_after date
+        let end_entity = self.select_best_certificate(&all_certs);
 
         // Build chain by matching subject/issuer
         let chain = self.build_certificate_chain(&end_entity, &all_certs);
 
         Ok((end_entity, chain))
+    }
+
+    /// Select the best certificate from a list
+    /// Prefers valid (not expired) certificates, falls back to most recently expired
+    fn select_best_certificate(&self, certs: &[Vec<u8>]) -> Vec<u8> {
+        use chrono::Utc;
+        use x509_parser::prelude::*;
+
+        let now = Utc::now().timestamp();
+
+        // Parse all certs with their validity info
+        let mut cert_info: Vec<(Vec<u8>, i64, i64)> = certs
+            .iter()
+            .filter_map(|der| {
+                let (_, cert) = X509Certificate::from_der(der).ok()?;
+                let not_before = cert.validity().not_before.timestamp();
+                let not_after = cert.validity().not_after.timestamp();
+                Some((der.clone(), not_before, not_after))
+            })
+            .collect();
+
+        // First, try to find a currently valid certificate
+        if let Some((cert, _, _)) = cert_info
+            .iter()
+            .find(|(_, not_before, not_after)| *not_before <= now && now <= *not_after)
+        {
+            return cert.clone();
+        }
+
+        // If no valid cert, sort by not_after descending (most recent expiry first)
+        cert_info.sort_by(|a, b| b.2.cmp(&a.2));
+
+        // Return the certificate with the latest not_after date
+        cert_info
+            .first()
+            .map(|(cert, _, _)| cert.clone())
+            .unwrap_or_else(|| certs[0].clone())
     }
 
     /// Build certificate chain from subject/issuer matching

@@ -165,25 +165,27 @@ fn test_auto_detect_returns_valid_structure() {
 
 #[test]
 fn test_format_datetime() {
+    // ISO 8601 format: yyyy-MM-ddTHH:mm:ssZ
     let formatted = format_datetime(0);
-    assert!(formatted.contains("/"));
+    assert!(formatted.contains("-"));
     assert!(formatted.contains(":"));
+    assert!(formatted.contains("T"));
+    assert!(formatted.ends_with("Z"));
 }
 
 #[test]
 fn test_format_datetime_recent() {
-    let timestamp = 1735689600;
+    let timestamp = 1735689600; // 2025-01-01T00:00:00Z
     let formatted = format_datetime(timestamp);
     assert!(formatted.contains("2025"));
+    assert!(formatted.starts_with("2025-01-01"));
 }
 
 #[test]
 fn test_format_datetime_format() {
+    // ISO 8601: 1970-01-01T00:00:00Z
     let formatted = format_datetime(0);
-    let parts: Vec<&str> = formatted.split(' ').collect();
-    assert_eq!(parts.len(), 2);
-    assert!(parts[0].contains(":"));
-    assert!(parts[1].contains("/"));
+    assert_eq!(formatted, "1970-01-01T00:00:00Z");
 }
 
 // ============ Token Manager Error Cases ============

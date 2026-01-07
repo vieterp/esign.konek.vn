@@ -35,13 +35,13 @@ pub struct CertificateInfo {
     pub der_base64: String,
 }
 
-/// Format Unix timestamp as Vietnamese datetime format
-/// Format: HH:mm:ss dd/MM/yyyy (VNPT-CA standard)
+/// Format Unix timestamp as ISO 8601 datetime for JavaScript compatibility
+/// Format: yyyy-MM-ddTHH:mm:ssZ (JavaScript Date constructor compatible)
 pub fn format_datetime(timestamp: i64) -> String {
     use chrono::{TimeZone, Utc};
     let dt = Utc
         .timestamp_opt(timestamp, 0)
         .single()
         .unwrap_or_else(Utc::now);
-    dt.format("%H:%M:%S %d/%m/%Y").to_string()
+    dt.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
