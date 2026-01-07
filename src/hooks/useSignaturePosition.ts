@@ -83,6 +83,7 @@ export function useSignaturePosition(): UseSignaturePositionState & UseSignature
     // Check if position differs from default
     const isCustom = JSON.stringify(position) !== JSON.stringify(DEFAULT_POSITION);
     setHasCustomPosition(isCustom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist to localStorage on changes

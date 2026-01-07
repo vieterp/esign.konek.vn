@@ -36,6 +36,7 @@ function App() {
     if (!signing.selectedFile) {
       position.clear();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signing.selectedFile]);
 
   // Update position size when template width/height changes
@@ -53,6 +54,7 @@ function App() {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.template.width, template.template.height]);
 
   const handleSign = useCallback(async () => {

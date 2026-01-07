@@ -102,6 +102,8 @@ export function SignaturePositioner({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
+    // position.llx/lly/urx/ury intentionally omitted - we read latest during drag
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging, dragOffset, canvasWidth, canvasHeight, pageWidth, pageHeight, screenPosition.width, screenPosition.height, onPositionChange]);
 
   return (

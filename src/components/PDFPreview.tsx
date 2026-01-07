@@ -40,7 +40,6 @@ export function PDFPreview({
 }: PDFPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-  const [_pageDims, setPageDims] = useState<PageDimensions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,7 +112,6 @@ export function PDFPreview({
             width: originalViewport.width,
             height: originalViewport.height,
           };
-          setPageDims(dims);
           onPageLoad?.(dims, currentPdfDoc.numPages);
         }
       } catch (err) {
