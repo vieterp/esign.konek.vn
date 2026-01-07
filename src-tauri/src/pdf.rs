@@ -646,11 +646,17 @@ impl PdfSigningEngine {
             if i > 0 {
                 content.push_str(&format!("0 -{} Td\n", line_height));
             }
-            // Line 1 (signer name) uses SemiBold font (F2)
-            if i == 1 {
-                let hex = utf8_to_pdf_hex_bold(line);
+            // Line 1 (signer name): "Được ký bởi: " regular + company name bold
+            if i == 1 && line.starts_with("Được ký bởi: ") {
+                let prefix = "Được ký bởi: ";
+                let company_name = &line[prefix.len()..];
+                // Render prefix with regular font (F1)
+                let hex_prefix = utf8_to_pdf_hex(prefix);
+                content.push_str(&format!("<{}> Tj\n", hex_prefix));
+                // Render company name with bold font (F2)
+                let hex_company = utf8_to_pdf_hex_bold(company_name);
                 content.push_str(&format!("/F2 {} Tf\n", font_size));
-                content.push_str(&format!("<{}> Tj\n", hex));
+                content.push_str(&format!("<{}> Tj\n", hex_company));
                 content.push_str(&format!("/F1 {} Tf\n", font_size)); // switch back to regular
             } else {
                 let hex = utf8_to_pdf_hex(line);
