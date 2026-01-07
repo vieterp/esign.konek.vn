@@ -3,7 +3,8 @@
  * PDF signing with Vietnamese USB tokens
  */
 
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useToken } from "./hooks/useToken";
 import { useSigning } from "./hooks/useSigning";
 import { TokenStatus } from "./components/TokenStatus";
@@ -14,6 +15,11 @@ import { ResultModal } from "./components/ResultModal";
 function App() {
   const token = useToken();
   const signing = useSigning();
+  const [appVersion, setAppVersion] = useState("0.0.0");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.0.0"));
+  }, []);
 
   const handleSign = useCallback(async () => {
     await signing.sign({
@@ -145,7 +151,7 @@ function App() {
 
         {/* Footer */}
         <footer className="mt-6 text-center text-sm text-slate-400 dark:text-slate-500">
-          <p>Konek eSign v0.1.0 • VNPT-CA, Viettel-CA, FPT-CA</p>
+          <p>Konek eSign v{appVersion} • VNPT-CA, Viettel-CA, FPT-CA</p>
         </footer>
       </div>
     </div>

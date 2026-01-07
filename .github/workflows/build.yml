@@ -99,10 +99,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # Build x86_64 only for PKCS#11 library compatibility
+      # Vietnamese CA libraries (Viettel, VNPT, FPT) only provide x86_64 versions
+      # App runs via Rosetta 2 on Apple Silicon with minimal performance impact
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: x86_64-apple-darwin
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -112,14 +115,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Tauri app (Intel)
+      - name: Build Tauri app (x86_64 - Universal via Rosetta)
         run: npm run tauri build -- --target x86_64-apple-darwin
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      - name: Build Tauri app (Apple Silicon)
-        run: npm run tauri build -- --target aarch64-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -128,9 +125,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-bundles
-          path: |
-            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
   # Build for Windows

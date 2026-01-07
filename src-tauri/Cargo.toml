@@ -1,9 +1,10 @@
 [package]
 name = "esign-desktop"
-version = "0.1.0"
+version = "0.1.2"
 description = "Cross-platform PDF signing app with Vietnamese USB token support"
 authors = ["eSign Team"]
 edition = "2021"
+default-run = "esign-desktop"
 
 [lib]
 name = "esign_desktop_lib"
@@ -23,7 +24,7 @@ tauri-plugin-fs = "2"
 cryptoki = "0.7"
 
 # PDF manipulation
-lopdf = "0.34"
+lopdf = "0.37"  # Upgraded from 0.34 to fix parsing regressions (encrypted PDFs, ToUnicode CMap, object streams)
 
 # Cryptography
 sha2 = "0.10"
@@ -56,6 +57,9 @@ thiserror = "1"
 
 # Security - PIN memory zeroization
 zeroize = { version = "1.7", features = ["derive"] }
+
+# Secure random number generation
+rand = "0.8"
 
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }

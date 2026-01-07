@@ -3,7 +3,7 @@
  * Supports click to select and drag-and-drop
  */
 
-import { useCallback, useState, DragEvent } from "react";
+import { useCallback, useState, DragEvent, KeyboardEvent } from "react";
 
 interface FileDropzoneProps {
   onFileSelect: (path: string) => void;
@@ -64,12 +64,29 @@ export function FileDropzone({
     }
   }, [disabled, isLoading, onBrowse]);
 
+  // Keyboard accessibility: Enter or Space to activate
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+    if ((e.key === "Enter" || e.key === " ") && !disabled && !isLoading) {
+      e.preventDefault();
+      onBrowse();
+    }
+  }, [disabled, isLoading, onBrowse]);
+
+  const dropzoneLabel = selectedFile
+    ? `File đã chọn: ${fileName}. Nhấn để chọn file khác`
+    : "Kéo thả file PDF vào đây hoặc nhấn để chọn file";
+
   return (
     <div
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={dropzoneLabel}
+      aria-disabled={disabled}
       className={`
         relative rounded-xl p-8 text-center transition-all cursor-pointer
         border-2 border-dashed

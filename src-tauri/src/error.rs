@@ -70,6 +70,14 @@ pub enum ESignError {
     #[error("PKCS#11 error: {0}")]
     Pkcs11(String),
 
+    #[error("Library architecture mismatch: {library_arch} library cannot run on {host_arch} system. {guidance}")]
+    LibraryArchitectureMismatch {
+        library_arch: String,
+        host_arch: String,
+        library_path: String,
+        guidance: String,
+    },
+
     #[error("PDF error: {0}")]
     Pdf(String),
 

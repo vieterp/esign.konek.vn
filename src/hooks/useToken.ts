@@ -73,14 +73,28 @@ export function useToken(): UseTokenState & UseTokenActions {
 
       // Find first slot with token
       const slotWithToken = tokenList.find(t => t.has_token);
+
+      if (tokenList.length === 0) {
+        setError("Không tìm thấy USB Token. Vui lòng kiểm tra kết nối token.");
+        setConnectionState("error");
+        setIsLoading(false);
+        return;
+      }
+
       if (slotWithToken) {
         setSelectedSlot(slotWithToken.slot_id);
+        setError(null); // Clear any previous errors
+      } else {
+        setError("Token được phát hiện nhưng không thể đọc thông tin. Vui lòng thử lại.");
+        setConnectionState("error");
+        setIsLoading(false);
+        return;
       }
 
       // Save settings
       saveSettings({
         libraryPath: library.path,
-        lastUsedSlot: slotWithToken?.slot_id
+        lastUsedSlot: slotWithToken.slot_id
       });
 
       setConnectionState("ready");
@@ -115,8 +129,22 @@ export function useToken(): UseTokenState & UseTokenActions {
 
         // Auto-select first slot with token
         const slotWithToken = tokenList.find(t => t.has_token);
+
+        if (tokenList.length === 0) {
+          setError("Không tìm thấy USB Token. Vui lòng kiểm tra kết nối token.");
+          setConnectionState("error");
+          setIsLoading(false);
+          return;
+        }
+
         if (slotWithToken) {
           setSelectedSlot(slotWithToken.slot_id);
+          setError(null);
+        } else {
+          setError("Token được phát hiện nhưng không thể đọc thông tin. Vui lòng thử lại.");
+          setConnectionState("error");
+          setIsLoading(false);
+          return;
         }
 
         setConnectionState("ready");
@@ -131,7 +159,31 @@ export function useToken(): UseTokenState & UseTokenActions {
           await initTokenManager(settings.libraryPath);
           const tokenList = await listTokens();
           setTokens(tokenList);
-          setSelectedSlot(settings.lastUsedSlot ?? null);
+
+          // Use saved slot if valid, otherwise auto-select first available
+          const savedSlotExists = tokenList.some(t => t.slot_id === settings.lastUsedSlot);
+          const slotWithToken = tokenList.find(t => t.has_token);
+
+          if (tokenList.length === 0) {
+            setError("Không tìm thấy USB Token. Vui lòng kiểm tra kết nối token.");
+            setConnectionState("error");
+            setIsLoading(false);
+            return;
+          }
+
+          if (savedSlotExists) {
+            setSelectedSlot(settings.lastUsedSlot!);
+            setError(null);
+          } else if (slotWithToken) {
+            setSelectedSlot(slotWithToken.slot_id);
+            setError(null);
+          } else {
+            setError("Token được phát hiện nhưng không thể đọc thông tin. Vui lòng thử lại.");
+            setConnectionState("error");
+            setIsLoading(false);
+            return;
+          }
+
           setConnectionState("ready");
           setIsLoading(false);
           return;

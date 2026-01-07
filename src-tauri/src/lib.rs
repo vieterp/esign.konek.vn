@@ -32,7 +32,7 @@ impl Default for AppState {
 fn get_app_info() -> serde_json::Value {
     serde_json::json!({
         "name": "eSign Desktop",
-        "version": "0.1.0",
+        "version": "0.1.2",
         "description": "Cross-platform PDF signing with Vietnamese USB tokens"
     })
 }
@@ -48,6 +48,29 @@ fn detect_libraries() -> Vec<DetectedLibrary> {
 /// Must be called before other token operations
 #[tauri::command]
 fn init_token_manager(state: State<AppState>, library_path: String) -> Result<(), String> {
+    // Drop old manager first to ensure C_Finalize is called
+    {
+        let mut guard = state
+            .token_manager
+            .lock()
+            .map_err(|_| "Token manager mutex poisoned")?;
+
+        if let Some(old_manager) = guard.take() {
+            // Check if re-initializing with same library (skip if identical)
+            if old_manager.library_path() == library_path {
+                *guard = Some(old_manager);
+                return Ok(());
+            }
+            // Explicit drop triggers C_Finalize via Drop impl
+            drop(old_manager);
+        }
+    } // guard released here
+
+    // Delay to ensure PKCS#11 library fully finalized
+    // cryptoki v0.7.0's finalize() consumes self, so we rely on Drop cleanup + delay
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    // Create new manager
     let manager = TokenManager::new(&library_path).map_err(|e| e.to_string())?;
 
     let mut guard = state
@@ -237,6 +260,8 @@ fn sign_pdf(
     let cert_info = manager.get_certificate_info().map_err(|e| e.to_string())?;
 
     // Build signer parameters
+    let final_signer = signer_name.or_else(|| Some(cert_info.subject.clone()));
+
     let signer_params = PdfSigner {
         page: page.unwrap_or(1),
         llx: 50.0,
@@ -245,14 +270,15 @@ fn sign_pdf(
         ury: 100.0,
         visible,
         description: reason,
-        signer: signer_name.or_else(|| Some(cert_info.subject.clone())),
+        signer: final_signer,
         signing_time: Some(pdf::get_current_signing_time()),
         certificate_serial: Some(cert_info.serial.clone()),
         ..Default::default()
     };
 
-    // Create signing engine with TSA support
-    let engine = PdfSigningEngine::with_tsa().map_err(|e| e.to_string())?;
+    // Create signing engine without TSA (Vietnamese TSA servers are unreliable)
+    // Signatures will be valid but won't have trusted timestamps
+    let engine = PdfSigningEngine::new();
 
     // Sign the PDF
     // Create a closure that captures manager for signing

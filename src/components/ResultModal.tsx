@@ -3,7 +3,7 @@
  * Shows signing result with output path and actions
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { SignResult } from "../lib/tauri";
 
 interface ResultModalProps {
@@ -21,16 +21,42 @@ export function ResultModal({
   onClose,
   onSignAnother,
 }: ResultModalProps) {
-  // Close on Escape key
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close on Escape key and handle focus trap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
         onClose();
+        return;
+      }
+      // Focus trap: Tab key cycles within modal
+      if (e.key === "Tab" && isOpen && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Focus close button when modal opens
+  useEffect(() => {
+    if (isOpen && closeButtonRef.current) {
+      closeButtonRef.current.focus();
+    }
+  }, [isOpen]);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -46,8 +72,15 @@ export function ResultModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
+      role="presentation"
     >
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="result-modal-title"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      >
         {/* Header */}
         <div className={`p-6 ${isSuccess ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"}`}>
           <div className="flex items-center gap-4">
@@ -85,7 +118,10 @@ export function ResultModal({
               </div>
             )}
             <div>
-              <h2 className={`text-xl font-semibold ${isSuccess ? "text-green-800 dark:text-green-200" : "text-red-800 dark:text-red-200"}`}>
+              <h2
+                id="result-modal-title"
+                className={`text-xl font-semibold ${isSuccess ? "text-green-800 dark:text-green-200" : "text-red-800 dark:text-red-200"}`}
+              >
                 {isSuccess ? "Ký số thành công!" : "Ký số thất bại"}
               </h2>
               {result?.signing_time && (
@@ -129,8 +165,10 @@ export function ResultModal({
         {/* Actions */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/50 flex gap-3 justify-end">
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            aria-label="Đóng hộp thoại kết quả"
           >
             Đóng
           </button>
@@ -141,6 +179,7 @@ export function ResultModal({
                 ? "bg-green-600 hover:bg-green-700"
                 : "bg-ocean-500 hover:bg-ocean-600"
             }`}
+            aria-label={isSuccess ? "Ký file PDF khác" : "Thử ký lại file"}
           >
             {isSuccess ? "Ký file khác" : "Thử lại"}
           </button>

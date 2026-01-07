@@ -1,8 +1,8 @@
 # System Architecture Documentation
 
-**Last Updated:** 2025-12-27
-**Version:** 1.1
-**Status:** Phase 4 Complete (80% overall) - All major components implemented
+**Last Updated:** 2026-01-06
+**Version:** 1.2
+**Status:** Phase 1 Security Complete - All major components implemented
 
 ## Table of Contents
 
@@ -584,35 +584,69 @@ listen('signing_progress', (event) => {
 
 **File:** `src-tauri/capabilities/default.json`
 
-Current permissions (Phase 1):
-- `fs:allow-read` - Read PDF files
-- `fs:allow-write` - Write signed PDFs
-- `dialog:allow-open` - File selection
-- `dialog:allow-save` - Save as dialog
-- `shell:allow-open` - Open signed files
-
-**Phase 2 Requirement:** Scope to user directories only
-
+**Phase 1 Complete:** Scoped to Documents and Downloads
 ```json
 {
   "permissions": [
-    "fs:scope-allow-read=/Users/*/Documents/**",
-    "fs:scope-allow-write=/Users/*/Documents/**",
-    // ... etc
+    "core:default",
+    "shell:allow-open",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:allow-ask",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    }
   ]
 }
 ```
 
-### Content Security Policy (Phase 2)
+**Security Model:** The application is restricted to Documents and Downloads folders on user's system. This prevents access to sensitive system directories or other user files.
 
-**Current:** `"csp": null` (INSECURE)
+### Content Security Policy (CSP)
 
-**Required:**
+**File:** `src-tauri/tauri.conf.json`
+
+**Phase 1 Complete:** Hardened CSP without unsafe-inline
 ```json
 {
-  "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://tsa.vnca.com.vn https://tsa.vpost.vn https://tsa.fptca.com.vn"
+  "security": {
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+  }
 }
 ```
+
+**Security Features:**
+- `default-src 'self'` - Only allow resources from the application itself
+- `script-src 'self'` - No inline scripts, all JS must be bundled
+- `style-src 'self' https://fonts.googleapis.com` - Bundled CSS only, allow Google Fonts (safe external)
+- `font-src 'self' https://fonts.gstatic.com` - Bundled fonts + Google Fonts CDN
+- `img-src 'self' data:` - Application images + data URIs for embedded images
+- `connect-src 'self'` - API calls only to self (no arbitrary network access)
+
+This CSP prevents:
+- Inline script execution (XSS mitigation)
+- Dynamic eval() calls
+- Arbitrary external script loading
+- Unsafe CSS manipulation
 
 ---
 
@@ -623,13 +657,16 @@ Current permissions (Phase 1):
 - Build configuration
 - Error type definitions
 - Module structure
+- **Phase 1 Security (Phase 1.1):** CSP hardening and FS scope restrictions
+  - Content Security Policy without unsafe-inline
+  - Filesystem access scoped to Documents + Downloads
+  - PKCS#11 manager lifecycle improvements
 
 ### Phase 2: Token Integration
 - PKCS#11 implementation
 - Token detection
 - Certificate retrieval
 - PIN entry dialog
-- Security hardening
 
 ### Phase 3: PDF Signing
 - PDF parsing
