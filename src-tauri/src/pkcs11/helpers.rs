@@ -35,13 +35,13 @@ pub fn format_dn_utf8(name: &x509_parser::x509::X509Name) -> String {
                 // Try BMPString (tag 30) - UTF-16BE encoding
                 else if any.tag().0 == 30 {
                     // BMPString is UTF-16BE
-                    let utf16_chars: Vec<u16> = any.data
+                    let utf16_chars: Vec<u16> = any
+                        .data
                         .chunks_exact(2)
                         .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
                         .collect();
-                    String::from_utf16(&utf16_chars).unwrap_or_else(|_| {
-                        String::from_utf8_lossy(any.data).to_string()
-                    })
+                    String::from_utf16(&utf16_chars)
+                        .unwrap_or_else(|_| String::from_utf8_lossy(any.data).to_string())
                 }
                 // Fallback to default
                 else {
@@ -120,7 +120,8 @@ pub fn create_arch_mismatch_error(error_str: &str, library_path: &str) -> ESignE
         // Apple Silicon Mac with x86_64 library
         "Thư viện PKCS#11 của nhà cung cấp chỉ hỗ trợ Intel (x86_64). \
             Giải pháp: (1) Liên hệ nhà cung cấp CA để xin phiên bản ARM64, \
-            hoặc (2) Chạy ứng dụng qua Rosetta 2: arch -x86_64 open -a \"Konek eSign\"".to_string()
+            hoặc (2) Chạy ứng dụng qua Rosetta 2: arch -x86_64 open -a \"Konek eSign\""
+            .to_string()
     } else if host_arch.contains("x86_64") && library_arch.contains("arm64") {
         // Intel Mac with ARM64 library
         "Thư viện PKCS#11 chỉ hỗ trợ Apple Silicon (ARM64). \

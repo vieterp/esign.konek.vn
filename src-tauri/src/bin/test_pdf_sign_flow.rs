@@ -1,8 +1,8 @@
+use lopdf::{Dictionary, Document, Object};
 /// Enhanced PDF parsing diagnostic tool
 /// Tests the entire PDF signing flow to identify where the error occurs
 use std::fs;
 use std::path::Path;
-use lopdf::{Dictionary, Document, Object};
 
 fn main() {
     let pdf_path = "/Users/vieterp/Downloads/1_C26TSV_00000073.pdf";
@@ -125,14 +125,20 @@ fn main() {
     widget.set("Type", Object::Name(b"Annot".to_vec()));
     widget.set("Subtype", Object::Name(b"Widget".to_vec()));
     widget.set("FT", Object::Name(b"Sig".to_vec()));
-    widget.set("Rect", Object::Array(vec![
-        Object::Real(50.0),
-        Object::Real(50.0),
-        Object::Real(200.0),
-        Object::Real(100.0),
-    ]));
+    widget.set(
+        "Rect",
+        Object::Array(vec![
+            Object::Real(50.0),
+            Object::Real(50.0),
+            Object::Real(200.0),
+            Object::Real(100.0),
+        ]),
+    );
     widget.set("V", Object::Reference(sig_id));
-    widget.set("T", Object::String(b"Signature1".to_vec(), lopdf::StringFormat::Literal));
+    widget.set(
+        "T",
+        Object::String(b"Signature1".to_vec(), lopdf::StringFormat::Literal),
+    );
     widget.set("F", Object::Integer(4)); // Print flag
 
     let widget_id = doc.add_object(Object::Dictionary(widget));

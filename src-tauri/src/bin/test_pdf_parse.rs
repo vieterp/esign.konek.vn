@@ -49,11 +49,15 @@ fn main() {
                 lopdf::Error::Decryption(msg) => println!("Variant: Decryption({})", msg),
                 lopdf::Error::NotEncrypted => println!("Variant: NotEncrypted"),
                 lopdf::Error::AlreadyEncrypted => println!("Variant: AlreadyEncrypted"),
-                lopdf::Error::UnsupportedSecurityHandler(msg) => println!("Variant: UnsupportedSecurityHandler({:?})", msg),
+                lopdf::Error::UnsupportedSecurityHandler(msg) => {
+                    println!("Variant: UnsupportedSecurityHandler({:?})", msg)
+                }
                 lopdf::Error::ToUnicodeCMap(msg) => println!("Variant: ToUnicodeCMap({})", msg),
                 lopdf::Error::Parse(msg) => println!("Variant: Parse({})", msg),
                 lopdf::Error::Xref(msg) => println!("Variant: Xref({})", msg),
-                lopdf::Error::InvalidObjectStream(msg) => println!("Variant: InvalidObjectStream({})", msg),
+                lopdf::Error::InvalidObjectStream(msg) => {
+                    println!("Variant: InvalidObjectStream({})", msg)
+                }
                 lopdf::Error::InvalidStream(msg) => println!("Variant: InvalidStream({})", msg),
                 lopdf::Error::Decompress(msg) => println!("Variant: Decompress({})", msg),
                 _ => println!("Variant: Other/Unknown - {}", e),
@@ -85,12 +89,20 @@ fn main() {
                         lopdf::Error::Decryption(msg) => println!("Variant: Decryption({})", msg),
                         lopdf::Error::NotEncrypted => println!("Variant: NotEncrypted"),
                         lopdf::Error::AlreadyEncrypted => println!("Variant: AlreadyEncrypted"),
-                        lopdf::Error::UnsupportedSecurityHandler(msg) => println!("Variant: UnsupportedSecurityHandler({:?})", msg),
-                        lopdf::Error::ToUnicodeCMap(msg) => println!("Variant: ToUnicodeCMap({})", msg),
+                        lopdf::Error::UnsupportedSecurityHandler(msg) => {
+                            println!("Variant: UnsupportedSecurityHandler({:?})", msg)
+                        }
+                        lopdf::Error::ToUnicodeCMap(msg) => {
+                            println!("Variant: ToUnicodeCMap({})", msg)
+                        }
                         lopdf::Error::Parse(msg) => println!("Variant: Parse({})", msg),
                         lopdf::Error::Xref(msg) => println!("Variant: Xref({})", msg),
-                        lopdf::Error::InvalidObjectStream(msg) => println!("Variant: InvalidObjectStream({})", msg),
-                        lopdf::Error::InvalidStream(msg) => println!("Variant: InvalidStream({})", msg),
+                        lopdf::Error::InvalidObjectStream(msg) => {
+                            println!("Variant: InvalidObjectStream({})", msg)
+                        }
+                        lopdf::Error::InvalidStream(msg) => {
+                            println!("Variant: InvalidStream({})", msg)
+                        }
                         lopdf::Error::Decompress(msg) => println!("Variant: Decompress({})", msg),
                         _ => println!("Variant: Other/Unknown - {}", e),
                     }

@@ -879,7 +879,9 @@ impl PdfSigningEngine {
     ) -> Result<Vec<u8>, ESignError> {
         // Build the unsignedAttrs containing the timestamp token
         // id-aa-signatureTimeStampToken: 1.2.840.113549.1.9.16.2.14
-        let timestamp_oid = &[0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x09, 0x10, 0x02, 0x0E];
+        let timestamp_oid = &[
+            0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x09, 0x10, 0x02, 0x0E,
+        ];
 
         // Build Attribute SEQUENCE containing timestamp
         let mut attr_content = Vec::new();
