@@ -4,6 +4,7 @@
 //! including PKCS#11 token communication, PDF signing, and TSA integration.
 
 mod error;
+mod font;
 mod pdf;
 mod pkcs11;
 mod tsa;
@@ -32,7 +33,7 @@ impl Default for AppState {
 fn get_app_info() -> serde_json::Value {
     serde_json::json!({
         "name": "eSign Desktop",
-        "version": "0.1.2",
+        "version": "1.0.0",
         "description": "Cross-platform PDF signing with Vietnamese USB tokens"
     })
 }
@@ -180,6 +181,12 @@ fn check_token_status(state: State<AppState>) -> Result<serde_json::Value, Strin
     }
 }
 
+/// Tauri command: Open file with system default application
+#[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    opener::open(&path).map_err(|e| format!("Failed to open file: {}", e))
+}
+
 /// Tauri command: Sign data using token
 /// Input: base64-encoded data to sign
 /// Output: base64-encoded signature
@@ -208,6 +215,7 @@ fn sign_data(state: State<AppState>, data_base64: String) -> Result<String, Stri
 /// Tauri command: Sign a PDF file
 /// Requires token to be logged in first
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 fn sign_pdf(
     state: State<AppState>,
     pdf_path: String,
@@ -215,7 +223,18 @@ fn sign_pdf(
     visible: bool,
     reason: Option<String>,
     signer_name: Option<String>,
+    // Position parameters (PDF coordinates)
     page: Option<u32>,
+    llx: Option<f64>,
+    lly: Option<f64>,
+    urx: Option<f64>,
+    ury: Option<f64>,
+    // Appearance parameters
+    font_size: Option<u32>,
+    color_rgb: Option<String>,
+    show_name: Option<bool>,
+    show_timestamp: Option<bool>,
+    show_reason: Option<bool>,
 ) -> Result<SignResult, String> {
     // Validate paths are not empty
     if pdf_path.is_empty() || output_path.is_empty() {
@@ -243,6 +262,13 @@ fn sign_pdf(
         }
     }
 
+    // Validate color format (#RRGGBB)
+    if let Some(ref c) = color_rgb {
+        if !c.starts_with('#') || c.len() != 7 {
+            return Err("Invalid color format (must be #RRGGBB)".into());
+        }
+    }
+
     let guard = state
         .token_manager
         .lock()
@@ -259,20 +285,43 @@ fn sign_pdf(
     let cert_der = manager.get_certificate_der().map_err(|e| e.to_string())?;
     let cert_info = manager.get_certificate_info().map_err(|e| e.to_string())?;
 
-    // Build signer parameters
-    let final_signer = signer_name.or_else(|| Some(cert_info.subject.clone()));
+    // Build signer name based on show_name setting
+    let final_signer = if show_name.unwrap_or(true) {
+        signer_name.or_else(|| Some(cert_info.subject.clone()))
+    } else {
+        None
+    };
+
+    // Build description based on show_reason setting
+    let final_description = if show_reason.unwrap_or(false) {
+        reason
+    } else {
+        None
+    };
+
+    // Use custom position if provided, otherwise use defaults
+    let sig_llx = llx.unwrap_or(50.0);
+    let sig_lly = lly.unwrap_or(50.0);
+    let sig_urx = urx.unwrap_or(250.0);
+    let sig_ury = ury.unwrap_or(100.0);
 
     let signer_params = PdfSigner {
         page: page.unwrap_or(1),
-        llx: 50.0,
-        lly: 50.0,
-        urx: 250.0,
-        ury: 100.0,
+        llx: sig_llx,
+        lly: sig_lly,
+        urx: sig_urx,
+        ury: sig_ury,
         visible,
-        description: reason,
+        description: final_description,
         signer: final_signer,
-        signing_time: Some(pdf::get_current_signing_time()),
+        signing_time: if show_timestamp.unwrap_or(true) {
+            Some(pdf::get_current_signing_time())
+        } else {
+            None
+        },
         certificate_serial: Some(cert_info.serial.clone()),
+        sig_text_size: font_size,
+        sig_color_rgb: color_rgb,
         ..Default::default()
     };
 
@@ -317,6 +366,7 @@ pub fn run() {
             check_token_status,
             sign_data,
             sign_pdf,
+            open_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
