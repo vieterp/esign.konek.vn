@@ -31,13 +31,8 @@ function App() {
     getVersion().then(setAppVersion).catch(() => setAppVersion("0.0.0"));
   }, []);
 
-  // Reset position when file changes
-  useEffect(() => {
-    if (!signing.selectedFile) {
-      position.clear();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signing.selectedFile]);
+  // Position is persisted in localStorage via useSignaturePosition hook
+  // No need to clear on file change - user may want same position for multiple files
 
   // Update position size when template width/height changes
   useEffect(() => {
