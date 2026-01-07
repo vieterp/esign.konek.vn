@@ -4,7 +4,8 @@
  */
 
 import { useState, useCallback } from "react";
-import { signPdf, selectPdfFile, SignResult } from "../lib/tauri";
+import { signPdf, selectPdfFile, SignResult, SignatureAppearance } from "../lib/tauri";
+import { PdfPosition } from "../lib/pdf-coordinates";
 
 export type SigningState =
   | "idle"
@@ -19,6 +20,10 @@ export interface SigningOptions {
   reason?: string;
   signerName?: string;
   page?: number;
+  /** Custom signature position */
+  position?: PdfPosition;
+  /** Signature appearance customization */
+  appearance?: SignatureAppearance;
 }
 
 export interface UseSigningState {
@@ -172,7 +177,8 @@ export function useSigning(): UseSigningState & UseSigningActions {
         options?.visible ?? true,
         options?.reason,
         options?.signerName,
-        options?.page
+        options?.position,
+        options?.appearance
       );
 
       if (signResult.success) {

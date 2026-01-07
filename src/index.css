@@ -5,15 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Prevent window scroll - fit content to window */
-html, body {
-  overflow: hidden;
-  height: 100%;
-}
-
-#root {
-  height: 100%;
-  overflow: auto;
+/* Desktop app layout - viewport-based, no page scroll */
+html, body, #root {
+  height: 100vh;
+  margin: 0;
+  padding: 0;
 }
 
 /* KONEK Brand CSS Variables */

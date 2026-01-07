@@ -1,13 +1,13 @@
 [package]
-name = "esign-desktop"
-version = "0.1.2"
+name = "konek-esign"
+version = "1.0.0"
 description = "Cross-platform PDF signing app with Vietnamese USB token support"
-authors = ["eSign Team"]
+authors = ["Konek"]
 edition = "2021"
-default-run = "esign-desktop"
+default-run = "konek-esign"
 
 [lib]
-name = "esign_desktop_lib"
+name = "konek_esign_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
@@ -63,6 +63,15 @@ rand = "0.8"
 
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
+
+# Compression for font embedding
+flate2 = "1.0"
+
+# Font parsing for glyph mapping
+ttf-parser = "0.24"
+
+# Open files with system default application
+opener = "0.7"
 
 [features]
 default = ["custom-protocol"]

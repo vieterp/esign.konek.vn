@@ -1,6 +1,6 @@
 {
-  "name": "esign-desktop",
-  "version": "0.1.2",
+  "name": "konek-esign",
+  "version": "1.0.0",
   "description": "Cross-platform PDF signing app with Vietnamese USB token support",
   "type": "module",
   "scripts": {
@@ -14,6 +14,9 @@
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tauri-apps/plugin-fs": "^2.4.4",
+    "@tauri-apps/plugin-shell": "^2.3.3",
+    "pdfjs-dist": "^5.4.530",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

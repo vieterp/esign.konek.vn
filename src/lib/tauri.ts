@@ -47,6 +47,31 @@ export interface SignResult {
   signing_time: string;
 }
 
+/** Signature position in PDF coordinates */
+export interface PdfPosition {
+  page: number;
+  llx: number;
+  lly: number;
+  urx: number;
+  ury: number;
+}
+
+/** Signature appearance customization */
+export interface SignatureAppearance {
+  /** Font family (maps to PDF font) */
+  fontFamily: 'sans-serif' | 'serif' | 'handwriting';
+  /** Font size in points */
+  fontSize: number;
+  /** Color in hex format (#RRGGBB) */
+  colorHex: string;
+  /** Show signer name */
+  showName: boolean;
+  /** Show timestamp */
+  showTimestamp: boolean;
+  /** Show signing reason */
+  showReason: boolean;
+}
+
 export interface AppInfo {
   name: string;
   version: string;
@@ -97,7 +122,8 @@ export async function signPdf(
   visible: boolean = true,
   reason?: string,
   signerName?: string,
-  page?: number
+  position?: PdfPosition,
+  appearance?: SignatureAppearance
 ): Promise<SignResult> {
   return invoke("sign_pdf", {
     pdfPath,
@@ -105,7 +131,16 @@ export async function signPdf(
     visible,
     reason,
     signerName,
-    page,
+    page: position?.page,
+    llx: position?.llx,
+    lly: position?.lly,
+    urx: position?.urx,
+    ury: position?.ury,
+    fontSize: appearance?.fontSize,
+    colorRgb: appearance?.colorHex,
+    showName: appearance?.showName,
+    showTimestamp: appearance?.showTimestamp,
+    showReason: appearance?.showReason,
   });
 }
 
@@ -122,6 +157,11 @@ export async function selectPdfFile(): Promise<string | null> {
     title: "Chọn file PDF để ký",
   });
   return result as string | null;
+}
+
+/** Open file with system default application */
+export async function openFile(path: string): Promise<void> {
+  return invoke("open_file", { path });
 }
 
 // ============ Settings ============

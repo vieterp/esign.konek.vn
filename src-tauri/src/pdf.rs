@@ -5,6 +5,10 @@
 //! with VNPT-CA Plugin (llx, lly, urx, ury coordinates).
 
 use crate::error::{ESignError, SigningErrorCode};
+use crate::font::{
+    embed_vietnamese_font, embed_vietnamese_font_bold, parse_color_rgb, utf8_to_pdf_hex,
+    utf8_to_pdf_hex_bold,
+};
 use crate::tsa::TsaClient;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use serde::{Deserialize, Serialize};
@@ -474,6 +478,7 @@ impl PdfSigningEngine {
 
         // Rectangle for signature appearance
         if params.visible {
+            // Use position coordinates directly (from template size)
             widget.set(
                 "Rect",
                 Object::Array(vec![
@@ -485,8 +490,7 @@ impl PdfSigningEngine {
             );
 
             // Create appearance stream
-            let ap_stream = self.create_signature_appearance(params)?;
-            let ap_id = doc.add_object(ap_stream);
+            let ap_id = self.create_signature_appearance(doc, params)?;
 
             let mut ap_dict = Dictionary::new();
             ap_dict.set("N", Object::Reference(ap_id));
@@ -507,27 +511,163 @@ impl PdfSigningEngine {
         Ok(doc.add_object(Object::Dictionary(widget)))
     }
 
-    /// Create signature appearance stream
-    fn create_signature_appearance(&self, params: &PdfSigner) -> Result<Object, ESignError> {
+    /// Create signature appearance stream with vector text rendering
+    /// Renders Vietnamese text with embedded font and green checkmark icon
+    fn create_signature_appearance(
+        &self,
+        doc: &mut Document,
+        params: &PdfSigner,
+    ) -> Result<ObjectId, ESignError> {
         let width = params.urx - params.llx;
         let height = params.ury - params.lly;
 
-        // Simple appearance stream with text
-        let signer_name = params.signer.as_deref().unwrap_or("Digital Signature");
-        let signing_time = params
-            .signing_time
-            .clone()
-            .unwrap_or_else(get_current_signing_time);
+        // Embed Vietnamese fonts (Regular + SemiBold)
+        let embedded_font = embed_vietnamese_font(doc, "F1")
+            .map_err(|e| ESignError::Pdf(format!("Failed to embed font: {}", e)))?;
+        let embedded_font_bold = embed_vietnamese_font_bold(doc, "F2")
+            .map_err(|e| ESignError::Pdf(format!("Failed to embed bold font: {}", e)))?;
 
-        let content = format!(
-            "q\n1 1 1 rg\n0 0 {w} {h} re f\n0 0 0 rg\nBT\n/F1 10 Tf\n10 {ty} Td\n({signer}) Tj\n0 -14 Td\n({time}) Tj\nET\nQ",
-            w = width,
-            h = height,
-            ty = height - 20.0,
-            signer = signer_name,
-            time = signing_time
-        );
+        // Get appearance settings
+        let font_size = params.sig_text_size.unwrap_or(10) as f64;
+        let line_height = font_size * 1.3;
 
+        // Parse color (default red #dc2626)
+        let color_hex = params.sig_color_rgb.as_deref().unwrap_or("#dc2626");
+        let (r, g, b) = parse_color_rgb(color_hex);
+
+        // Build text lines based on available data
+        let mut lines: Vec<String> = vec!["Signature Valid".to_string()];
+
+        if let Some(ref signer) = params.signer {
+            lines.push(format!("Được ký bởi: {}", signer));
+        }
+
+        if let Some(ref signing_time) = params.signing_time {
+            // Format signing time as DD/MM/YYYY only (remove time part)
+            let date_only = if let Some(space_pos) = signing_time.find(' ') {
+                &signing_time[space_pos + 1..]
+            } else {
+                signing_time.as_str()
+            };
+            lines.push(format!("Ngày ký: {}", date_only));
+        }
+
+        // Padding
+        let padding = 4.0;
+        let checkmark_size = font_size * 0.9;
+        let checkmark_gap = 3.0;
+
+        // Calculate text positions (from top)
+        let y_start = height - padding - font_size;
+
+        // Build content stream
+        let mut content = String::new();
+
+        // Save graphics state
+        content.push_str("q\n");
+
+        // White background
+        content.push_str("1 1 1 rg\n");
+        content.push_str(&format!("0 0 {} {} re f\n", width, height));
+
+        // Colored border (1pt width)
+        content.push_str(&format!("{} {} {} RG\n", r, g, b));
+        content.push_str("1 w\n");
+        content.push_str(&format!("0.5 0.5 {} {} re S\n", width - 1.0, height - 1.0));
+
+        // Draw green checkmark circle after "Signature Valid"
+        // Position: after text "Signature Valid" (approx 70pt at font size 10)
+        let checkmark_x = padding + font_size * 7.0 + checkmark_gap;
+        let checkmark_y = y_start + font_size * 0.3;
+        let cx = checkmark_x + checkmark_size / 2.0;
+        let cy = checkmark_y + checkmark_size / 2.0;
+        let cr = checkmark_size / 2.0;
+
+        // Green filled circle (approximated with bezier curves)
+        content.push_str("0.22 0.8 0.36 rg\n"); // #38cc5c green
+        let k = 0.5523; // bezier constant for circle
+        content.push_str(&format!(
+            "{} {} m\n\
+             {} {} {} {} {} {} c\n\
+             {} {} {} {} {} {} c\n\
+             {} {} {} {} {} {} c\n\
+             {} {} {} {} {} {} c\n\
+             f\n",
+            cx + cr,
+            cy,
+            cx + cr,
+            cy + cr * k,
+            cx + cr * k,
+            cy + cr,
+            cx,
+            cy + cr,
+            cx - cr * k,
+            cy + cr,
+            cx - cr,
+            cy + cr * k,
+            cx - cr,
+            cy,
+            cx - cr,
+            cy - cr * k,
+            cx - cr * k,
+            cy - cr,
+            cx,
+            cy - cr,
+            cx + cr * k,
+            cy - cr,
+            cx + cr,
+            cy - cr * k,
+            cx + cr,
+            cy,
+        ));
+
+        // White checkmark inside circle
+        content.push_str("1 1 1 RG\n");
+        content.push_str(&format!("{} w\n", checkmark_size * 0.15));
+        content.push_str("1 J 1 j\n"); // round cap and join
+        let scale = checkmark_size / 10.0;
+        content.push_str(&format!(
+            "{} {} m {} {} l {} {} l S\n",
+            checkmark_x + 2.5 * scale,
+            checkmark_y + 5.0 * scale,
+            checkmark_x + 4.5 * scale,
+            checkmark_y + 3.0 * scale,
+            checkmark_x + 7.5 * scale,
+            checkmark_y + 7.0 * scale,
+        ));
+
+        // Draw text
+        content.push_str(&format!("{} {} {} rg\n", r, g, b));
+        content.push_str("BT\n");
+        content.push_str(&format!("/F1 {} Tf\n", font_size));
+        content.push_str(&format!("{} {} Td\n", padding, y_start));
+
+        for (i, line) in lines.iter().enumerate() {
+            if i > 0 {
+                content.push_str(&format!("0 -{} Td\n", line_height));
+            }
+            // Line 1 (signer name): "Được ký bởi: " regular + company name bold
+            if i == 1 && line.starts_with("Được ký bởi: ") {
+                let prefix = "Được ký bởi: ";
+                let company_name = &line[prefix.len()..];
+                // Render prefix with regular font (F1)
+                let hex_prefix = utf8_to_pdf_hex(prefix);
+                content.push_str(&format!("<{}> Tj\n", hex_prefix));
+                // Render company name with bold font (F2)
+                let hex_company = utf8_to_pdf_hex_bold(company_name);
+                content.push_str(&format!("/F2 {} Tf\n", font_size));
+                content.push_str(&format!("<{}> Tj\n", hex_company));
+                content.push_str(&format!("/F1 {} Tf\n", font_size)); // switch back to regular
+            } else {
+                let hex = utf8_to_pdf_hex(line);
+                content.push_str(&format!("<{}> Tj\n", hex));
+            }
+        }
+
+        content.push_str("ET\n");
+        content.push_str("Q\n");
+
+        // Create XObject Form stream
         let mut stream_dict = Dictionary::new();
         stream_dict.set("Type", Object::Name(b"XObject".to_vec()));
         stream_dict.set("Subtype", Object::Name(b"Form".to_vec()));
@@ -541,22 +681,16 @@ impl PdfSigningEngine {
             ]),
         );
 
+        // Resources with embedded fonts (Regular + SemiBold)
         let mut resources = Dictionary::new();
         let mut font_dict = Dictionary::new();
-
-        let mut f1 = Dictionary::new();
-        f1.set("Type", Object::Name(b"Font".to_vec()));
-        f1.set("Subtype", Object::Name(b"Type1".to_vec()));
-        f1.set("BaseFont", Object::Name(b"Helvetica".to_vec()));
-
-        font_dict.set("F1", Object::Dictionary(f1));
+        font_dict.set("F1", Object::Reference(embedded_font.font_id));
+        font_dict.set("F2", Object::Reference(embedded_font_bold.font_id));
         resources.set("Font", Object::Dictionary(font_dict));
         stream_dict.set("Resources", Object::Dictionary(resources));
 
-        Ok(Object::Stream(Stream::new(
-            stream_dict,
-            content.into_bytes(),
-        )))
+        let stream = Stream::new(stream_dict, content.into_bytes());
+        Ok(doc.add_object(Object::Stream(stream)))
     }
 
     /// Add field to AcroForm

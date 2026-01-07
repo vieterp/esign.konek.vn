@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    esign_desktop_lib::run()
+    konek_esign_lib::run()
 }
