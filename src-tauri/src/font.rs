@@ -170,7 +170,11 @@ fn create_cid_font(font_descriptor_id: ObjectId, font_name: &str, font_data: &[u
 }
 
 /// Create Type 0 (composite) font dictionary
-fn create_type0_font(cid_font_id: ObjectId, to_unicode_id: ObjectId, font_name: &str) -> Dictionary {
+fn create_type0_font(
+    cid_font_id: ObjectId,
+    to_unicode_id: ObjectId,
+    font_name: &str,
+) -> Dictionary {
     let mut font = Dictionary::new();
     font.set("Type", Object::Name(b"Font".to_vec()));
     font.set("Subtype", Object::Name(b"Type0".to_vec()));
@@ -243,10 +247,7 @@ fn utf8_to_pdf_hex_with_font(text: &str, font_data: &[u8]) -> String {
         Ok(f) => f,
         Err(_) => {
             // Fallback: return empty or use Unicode directly
-            return text
-                .encode_utf16()
-                .map(|c| format!("{:04X}", c))
-                .collect();
+            return text.encode_utf16().map(|c| format!("{:04X}", c)).collect();
         }
     };
 

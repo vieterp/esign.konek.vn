@@ -5,7 +5,10 @@
 //! with VNPT-CA Plugin (llx, lly, urx, ury coordinates).
 
 use crate::error::{ESignError, SigningErrorCode};
-use crate::font::{embed_vietnamese_font, embed_vietnamese_font_bold, parse_color_rgb, utf8_to_pdf_hex, utf8_to_pdf_hex_bold};
+use crate::font::{
+    embed_vietnamese_font, embed_vietnamese_font_bold, parse_color_rgb, utf8_to_pdf_hex,
+    utf8_to_pdf_hex_bold,
+};
 use crate::tsa::TsaClient;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use serde::{Deserialize, Serialize};
@@ -570,11 +573,7 @@ impl PdfSigningEngine {
         // Colored border (1pt width)
         content.push_str(&format!("{} {} {} RG\n", r, g, b));
         content.push_str("1 w\n");
-        content.push_str(&format!(
-            "0.5 0.5 {} {} re S\n",
-            width - 1.0,
-            height - 1.0
-        ));
+        content.push_str(&format!("0.5 0.5 {} {} re S\n", width - 1.0, height - 1.0));
 
         // Draw green checkmark circle after "Signature Valid"
         // Position: after text "Signature Valid" (approx 70pt at font size 10)
@@ -594,11 +593,32 @@ impl PdfSigningEngine {
              {} {} {} {} {} {} c\n\
              {} {} {} {} {} {} c\n\
              f\n",
-            cx + cr, cy,
-            cx + cr, cy + cr * k, cx + cr * k, cy + cr, cx, cy + cr,
-            cx - cr * k, cy + cr, cx - cr, cy + cr * k, cx - cr, cy,
-            cx - cr, cy - cr * k, cx - cr * k, cy - cr, cx, cy - cr,
-            cx + cr * k, cy - cr, cx + cr, cy - cr * k, cx + cr, cy,
+            cx + cr,
+            cy,
+            cx + cr,
+            cy + cr * k,
+            cx + cr * k,
+            cy + cr,
+            cx,
+            cy + cr,
+            cx - cr * k,
+            cy + cr,
+            cx - cr,
+            cy + cr * k,
+            cx - cr,
+            cy,
+            cx - cr,
+            cy - cr * k,
+            cx - cr * k,
+            cy - cr,
+            cx,
+            cy - cr,
+            cx + cr * k,
+            cy - cr,
+            cx + cr,
+            cy - cr * k,
+            cx + cr,
+            cy,
         ));
 
         // White checkmark inside circle
