@@ -86,8 +86,11 @@ export function TokenStatus({
       {/* Status Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${getStatusColor(connectionState)}`} />
+          <div className="flex items-center gap-3" role="status" aria-live="polite">
+            <div
+              className={`w-3 h-3 rounded-full ${getStatusColor(connectionState)}`}
+              aria-hidden="true"
+            />
             <span className="font-medium text-slate-700 dark:text-slate-200">
               {getStatusText(connectionState)}
             </span>
@@ -98,6 +101,7 @@ export function TokenStatus({
                 onClick={onLogout}
                 disabled={isLoading}
                 className="text-sm px-3 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                aria-label="Đăng xuất khỏi token"
               >
                 Đăng xuất
               </button>
@@ -107,6 +111,7 @@ export function TokenStatus({
               disabled={isLoading}
               className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
               title="Làm mới"
+              aria-label={isLoading ? "Đang làm mới..." : "Làm mới trạng thái token"}
             >
               <svg
                 className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
@@ -127,7 +132,10 @@ export function TokenStatus({
 
         {/* Error message */}
         {error && (
-          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg">
+          <div
+            className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg"
+            role="alert"
+          >
             {error}
           </div>
         )}

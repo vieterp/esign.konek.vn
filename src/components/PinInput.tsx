@@ -3,7 +3,7 @@
  * Handles PIN input with visibility toggle and submit
  */
 
-import { useState, useCallback, FormEvent, KeyboardEvent, ChangeEvent } from "react";
+import { useState, useCallback, useEffect, FormEvent, KeyboardEvent, ChangeEvent } from "react";
 
 // PIN validation constants
 const PIN_MIN_LENGTH = 4;
@@ -56,28 +56,36 @@ export function PinInput({
     }
   }, [validationError]);
 
-  const handleSubmit = useCallback((e: FormEvent) => {
-    e.preventDefault();
+  // Shared PIN submission logic (DRY)
+  const submitPin = useCallback(() => {
+    if (disabled || isLoading) return;
     const pinError = validatePin(pin);
     if (pinError) {
       setValidationError(pinError);
       return;
     }
-    if (!disabled && !isLoading) {
-      onSubmit(pin);
-    }
+    const currentPin = pin;
+    setPin(""); // Clear PIN immediately for security
+    onSubmit(currentPin);
   }, [pin, disabled, isLoading, onSubmit]);
+
+  const handleSubmit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    submitPin();
+  }, [submitPin]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      const pinError = validatePin(pin);
-      if (pinError) {
-        setValidationError(pinError);
-        return;
-      }
-      onSubmit(pin);
+      submitPin();
     }
-  }, [pin, onSubmit]);
+  }, [submitPin]);
+
+  // Security: Clear PIN on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      setPin("");
+    };
+  }, []);
 
   const toggleShowPin = useCallback(() => {
     setShowPin(prev => !prev);
@@ -100,6 +108,9 @@ export function PinInput({
             placeholder="Nhập mã PIN token"
             maxLength={PIN_MAX_LENGTH}
             autoComplete="off"
+            aria-label="Mã PIN token"
+            aria-invalid={!!(error || validationError)}
+            aria-describedby="pin-help pin-error"
             className={`
               w-full px-4 py-3 pr-20 rounded-lg
               bg-slate-50 dark:bg-slate-900
@@ -118,6 +129,8 @@ export function PinInput({
             disabled={disabled || isLoading}
             className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50"
             title={showPin ? "Ẩn PIN" : "Hiện PIN"}
+            aria-label={showPin ? "Ẩn mã PIN" : "Hiện mã PIN"}
+            aria-pressed={showPin}
           >
             {showPin ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,6 +164,7 @@ export function PinInput({
             disabled={pin.length < PIN_MIN_LENGTH || disabled || isLoading}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-ocean-500 hover:text-ocean-600 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
             title="Đăng nhập"
+            aria-label={isLoading ? "Đang đăng nhập..." : "Đăng nhập token"}
           >
             {isLoading ? (
               <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -182,10 +196,12 @@ export function PinInput({
         </div>
 
         {(error || validationError) && (
-          <p className="text-sm text-red-500">{validationError || error}</p>
+          <p id="pin-error" className="text-sm text-red-500" role="alert">
+            {validationError || error}
+          </p>
         )}
 
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p id="pin-help" className="text-xs text-slate-500 dark:text-slate-400">
           Nhập mã PIN của USB Token để đăng nhập ({PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} ký tự, chữ và số)
         </p>
       </form>

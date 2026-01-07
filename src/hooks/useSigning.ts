@@ -53,28 +53,54 @@ function getOutputPath(inputPath: string): string {
 
 // Error mapping from English to Vietnamese
 const ERROR_MAP: Record<string, string> = {
+  // Authentication errors
   "Not logged in": "Chưa đăng nhập token. Vui lòng nhập mã PIN.",
   "Token manager not initialized": "Chưa khởi tạo token. Vui lòng kết nối USB Token.",
-  "file not found": "Không tìm thấy file PDF.",
-  "No such file": "Không tìm thấy file PDF.",
-  "permission denied": "Không có quyền truy cập file.",
   "PIN_INCORRECT": "Mã PIN không đúng.",
   "PIN incorrect": "Mã PIN không đúng.",
   "PIN_LOCKED": "Token đã bị khóa do nhập sai PIN quá nhiều lần.",
   "locked": "Token đã bị khóa.",
-  "TOKEN_NOT_PRESENT": "Token không được kết nối.",
-  "token not found": "Không tìm thấy USB Token.",
-  "Certificate not found": "Không tìm thấy chứng thư số trên token.",
-  "Private key not found": "Không tìm thấy khóa bí mật trên token.",
-  "Signing failed": "Ký số thất bại.",
-  "PDF error": "Lỗi xử lý file PDF.",
-  "TSA error": "Lỗi kết nối máy chủ thời gian.",
   "PIN must be 4-16 characters": "Mã PIN phải từ 4-16 ký tự.",
   "PIN contains invalid characters": "Mã PIN chỉ được chứa chữ cái và số.",
+
+  // Token/device errors
+  "TOKEN_NOT_PRESENT": "Token không được kết nối.",
+  "token not found": "Không tìm thấy USB Token.",
+  "No token detected": "Không phát hiện USB Token. Vui lòng cắm lại token.",
+  "Certificate not found": "Không tìm thấy chứng thư số trên token.",
+  "Private key not found": "Không tìm thấy khóa bí mật trên token.",
+  "Session mutex poisoned": "Lỗi phiên đăng nhập. Vui lòng khởi động lại ứng dụng.",
+  "Session already closed": "Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.",
+
+  // Library/architecture errors
+  "Architecture mismatch": "Thư viện không tương thích với hệ thống. Xem hướng dẫn trong lỗi.",
+  "Library path": "Đường dẫn thư viện không hợp lệ.",
+  "not in allowed location": "Thư viện không nằm trong thư mục cho phép.",
+  "invalid extension": "Thư viện có định dạng không hợp lệ.",
+
+  // File errors
+  "file not found": "Không tìm thấy file PDF.",
+  "No such file": "Không tìm thấy file PDF.",
+  "permission denied": "Không có quyền truy cập file.",
   "Paths cannot be empty": "Đường dẫn file không được trống.",
+
+  // Signing errors
+  "Signing failed": "Ký số thất bại.",
+  "PDF error": "Lỗi xử lý file PDF.",
+  "Invalid PDF": "File PDF không hợp lệ hoặc bị hỏng.",
   "Invalid page number": "Số trang không hợp lệ (phải từ 1-1000).",
   "Reason too long": "Lý do ký quá dài (tối đa 500 ký tự).",
   "Signer name too long": "Tên người ký quá dài (tối đa 200 ký tự).",
+
+  // TSA errors
+  "TSA error": "Lỗi kết nối máy chủ thời gian.",
+  "Timestamp": "Lỗi lấy dấu thời gian từ máy chủ TSA.",
+  "HTTP error": "Lỗi kết nối mạng.",
+
+  // Initialization errors
+  "Failed to initialize": "Không thể khởi tạo kết nối token.",
+  "Failed to open session": "Không thể mở phiên làm việc với token.",
+  "No slots with tokens": "Không tìm thấy slot nào có token.",
 };
 
 function mapErrorToVietnamese(error: string): string {
