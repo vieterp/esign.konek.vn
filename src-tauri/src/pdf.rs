@@ -308,9 +308,12 @@ impl PdfSigningEngine {
         })?;
 
         // Prepare signature field and get modified PDF
-        let (prepared_pdf, byte_range) = self.prepare_pdf_for_signing(&mut doc, signer_params)?;
+        let (mut prepared_pdf, byte_range) = self.prepare_pdf_for_signing(&mut doc, signer_params)?;
 
-        // Compute document digest
+        // Update ByteRange BEFORE computing hash (ByteRange is in signed region)
+        self.update_byte_range(&mut prepared_pdf, &byte_range)?;
+
+        // Compute document digest (now with correct ByteRange values)
         let digest = self.compute_document_digest(&prepared_pdf, &byte_range);
 
         // Build CMS SignedData structure
@@ -415,14 +418,15 @@ impl PdfSigningEngine {
             Object::String(placeholder, lopdf::StringFormat::Hexadecimal),
         );
 
-        // ByteRange placeholder
+        // ByteRange placeholder with large values to reserve space
+        // Actual byte positions can be 7+ digits, so use 10-digit placeholders
         sig_dict.set(
             "ByteRange",
             Object::Array(vec![
                 Object::Integer(0),
-                Object::Integer(0),
-                Object::Integer(0),
-                Object::Integer(0),
+                Object::Integer(9_999_999_999),
+                Object::Integer(9_999_999_999),
+                Object::Integer(9_999_999_999),
             ]),
         );
 
@@ -1150,25 +1154,54 @@ impl PdfSigningEngine {
         Ok(cms_data.to_vec())
     }
 
-    /// Embed signature into PDF
+    /// Update ByteRange placeholder with actual values
+    /// Must be called BEFORE computing document digest (ByteRange is in signed region)
+    fn update_byte_range(
+        &self,
+        pdf_bytes: &mut Vec<u8>,
+        byte_range: &[usize; 4],
+    ) -> Result<(), ESignError> {
+        // lopdf 0.37+ serializes without space: /ByteRange[...]
+        // Placeholder uses large values to reserve space: [0 9999999999 9999999999 9999999999]
+        let byte_range_marker_no_space = b"/ByteRange[0 9999999999 9999999999 9999999999]";
+        let byte_range_marker_with_space = b"/ByteRange [0 9999999999 9999999999 9999999999]";
+
+        let (pos, marker_len, use_space) =
+            if let Some(p) = find_bytes(pdf_bytes, byte_range_marker_no_space) {
+                (p, byte_range_marker_no_space.len(), false)
+            } else if let Some(p) = find_bytes(pdf_bytes, byte_range_marker_with_space) {
+                (p, byte_range_marker_with_space.len(), true)
+            } else {
+                return Err(ESignError::Pdf(
+                    "Cannot find ByteRange placeholder in PDF".to_string(),
+                ));
+            };
+
+        let new_byte_range = if use_space {
+            format!(
+                "/ByteRange [{} {} {} {}]",
+                byte_range[0], byte_range[1], byte_range[2], byte_range[3]
+            )
+        } else {
+            format!(
+                "/ByteRange[{} {} {} {}]",
+                byte_range[0], byte_range[1], byte_range[2], byte_range[3]
+            )
+        };
+        // Pad with spaces to match placeholder length
+        let padded = format!("{:width$}", new_byte_range, width = marker_len);
+        pdf_bytes[pos..pos + marker_len].copy_from_slice(padded.as_bytes());
+
+        Ok(())
+    }
+
+    /// Embed signature into PDF (ByteRange must already be updated)
     fn embed_signature(
         &self,
         mut pdf_bytes: Vec<u8>,
         cms_data: &[u8],
         byte_range: &[usize; 4],
     ) -> Result<Vec<u8>, ESignError> {
-        // Update ByteRange in PDF
-        let byte_range_marker = b"/ByteRange [0 0 0 0]";
-        if let Some(pos) = find_bytes(&pdf_bytes, byte_range_marker) {
-            let new_byte_range = format!(
-                "/ByteRange [{} {} {} {}]",
-                byte_range[0], byte_range[1], byte_range[2], byte_range[3]
-            );
-            // Pad to same length
-            let padded = format!("{:width$}", new_byte_range, width = byte_range_marker.len());
-            pdf_bytes[pos..pos + byte_range_marker.len()].copy_from_slice(padded.as_bytes());
-        }
-
         // Hex-encode CMS and pad to container size
         let hex_signature = hex::encode_upper(cms_data);
 
