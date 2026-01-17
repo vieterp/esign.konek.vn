@@ -1159,7 +1159,7 @@ impl PdfSigningEngine {
     /// Must be called BEFORE computing document digest (ByteRange is in signed region)
     fn update_byte_range(
         &self,
-        pdf_bytes: &mut Vec<u8>,
+        pdf_bytes: &mut [u8],
         byte_range: &[usize; 4],
     ) -> Result<(), ESignError> {
         // lopdf 0.37+ serializes without space: /ByteRange[...]
