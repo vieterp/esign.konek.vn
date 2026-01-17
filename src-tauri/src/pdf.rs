@@ -308,7 +308,8 @@ impl PdfSigningEngine {
         })?;
 
         // Prepare signature field and get modified PDF
-        let (mut prepared_pdf, byte_range) = self.prepare_pdf_for_signing(&mut doc, signer_params)?;
+        let (mut prepared_pdf, byte_range) =
+            self.prepare_pdf_for_signing(&mut doc, signer_params)?;
 
         // Update ByteRange BEFORE computing hash (ByteRange is in signed region)
         self.update_byte_range(&mut prepared_pdf, &byte_range)?;
